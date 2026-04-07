@@ -1,7 +1,9 @@
+local sps = game.StarterPlayer.StarterPlayerScripts
+
 game.Players.PlayerAdded:Connect(function(player)
  if player.Name == "1707RS" then  -- Put The owners name here
-  sg.OwnerOnly.Enabled = true
+  sps.OwnerOnly.Enabled = true
  else
-  sg.OwnerOnly.Enabled = false
+  sps.OwnerOnly.Enabled = false
  end
 end)
