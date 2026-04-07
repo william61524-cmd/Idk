@@ -1,1 +1,7 @@
-print("hi")
+game.Players.PlayerAdded:Connect(function(player)
+ if player.Name == "darknightwindtodark" then  -- Put The owners name here
+  sg.OwnerOnly.Enabled = true
+ else
+  sg.OwnerOnly.Enabled = false
+ end
+end)
