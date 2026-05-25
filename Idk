@@ -1,9 +1,259 @@
-local sps = game.StarterPlayer.StarterPlayerScripts
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
 
-game.Players.PlayerAdded:Connect(function(player)
- if player.Name == "1707RS" then  -- Put The owners name here
-  sps.OwnerOnly.Enabled = true
- else
-  sps.OwnerOnly.Enabled = false
- end
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+player.CharacterAdded:Connect(function(char)
+	character = char
+	humanoidRootPart = char:WaitForChild("HumanoidRootPart")
+end)
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "TestGUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 260, 0, 360)
+frame.Position = UDim2.new(0, 20, 0.5, -175)
+frame.BackgroundColor3 = Color3.fromRGB(35,35,35)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0,12)
+corner.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,35)
+title.BackgroundTransparency = 1
+title.Text = "Test Admin GUI"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 24
+title.Parent = frame
+
+local function makeButton(text, y)
+	local button = Instance.new("TextButton")
+	button.Size = UDim2.new(0,220,0,40)
+	button.Position = UDim2.new(0,20,0,y)
+	button.BackgroundColor3 = Color3.fromRGB(60,60,60)
+	button.TextColor3 = Color3.new(1,1,1)
+	button.Font = Enum.Font.SourceSansBold
+	button.TextSize = 22
+	button.Text = text
+	button.Parent = frame
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0,10)
+	corner.Parent = button
+
+	return button
+end
+
+local flyButton = makeButton("Fly", 45)
+local noclipFlyButton = makeButton("Noclip Fly", 95)
+local teleportButton = makeButton("Teleport Random", 145)
+local orbitButton = makeButton("Part Orbit", 195)
+local discoButton = makeButton("Disco OFF", 245)
+
+-- FLY
+local flying = false
+local noclipFlying = false
+local speed = 70
+
+local bodyVelocity
+local bodyGyro
+
+local controls = {W=false,A=false,S=false,D=false}
+
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	if input.KeyCode == Enum.KeyCode.W then controls.W = true end
+	if input.KeyCode == Enum.KeyCode.A then controls.A = true end
+	if input.KeyCode == Enum.KeyCode.S then controls.S = true end
+	if input.KeyCode == Enum.KeyCode.D then controls.D = true end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.W then controls.W = false end
+	if input.KeyCode == Enum.KeyCode.A then controls.A = false end
+	if input.KeyCode == Enum.KeyCode.S then controls.S = false end
+	if input.KeyCode == Enum.KeyCode.D then controls.D = false end
+end)
+
+local function stopFly()
+	flying = false
+	noclipFlying = false
+
+	if bodyVelocity then bodyVelocity:Destroy() end
+	if bodyGyro then bodyGyro:Destroy() end
+
+	for _,v in pairs(character:GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.CanCollide = true
+		end
+	end
+end
+
+local function startFly(noclip)
+	stopFly()
+
+	flying = true
+	noclipFlying = noclip
+
+	bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.MaxForce = Vector3.new(math.huge,math.huge,math.huge)
+	bodyVelocity.Parent = humanoidRootPart
+
+	bodyGyro = Instance.new("BodyGyro")
+	bodyGyro.MaxTorque = Vector3.new(math.huge,math.huge,math.huge)
+	bodyGyro.Parent = humanoidRootPart
+
+	task.spawn(function()
+		while flying do
+			RunService.RenderStepped:Wait()
+
+			local dir = Vector3.zero
+			if controls.W then dir += camera.CFrame.LookVector end
+			if controls.S then dir -= camera.CFrame.LookVector end
+			if controls.A then dir -= camera.CFrame.RightVector end
+			if controls.D then dir += camera.CFrame.RightVector end
+
+			bodyVelocity.Velocity =
+				(dir.Magnitude > 0 and dir.Unit * speed) or Vector3.zero
+
+			bodyGyro.CFrame = camera.CFrame
+
+			if noclipFlying then
+				for _,v in pairs(character:GetDescendants()) do
+					if v:IsA("BasePart") then
+						v.CanCollide = false
+					end
+				end
+			end
+		end
+	end)
+end
+
+flyButton.MouseButton1Click:Connect(function()
+	if flying and not noclipFlying then
+		stopFly()
+		flyButton.Text = "Fly"
+	else
+		startFly(false)
+		flyButton.Text = "Stop Fly"
+	end
+end)
+
+noclipFlyButton.MouseButton1Click:Connect(function()
+	if flying and noclipFlying then
+		stopFly()
+		noclipFlyButton.Text = "Noclip Fly"
+	else
+		startFly(true)
+		noclipFlyButton.Text = "Stop Noclip"
+	end
+end)
+
+-- TELEPORT
+teleportButton.MouseButton1Click:Connect(function()
+	local list = {}
+	for _,p in pairs(Players:GetPlayers()) do
+		if p ~= player then
+			table.insert(list, p)
+		end
+	end
+
+	if #list > 0 then
+		local t = list[math.random(1,#list)]
+		if t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
+			humanoidRootPart.CFrame =
+				t.Character.HumanoidRootPart.CFrame + Vector3.new(0,5,0)
+		end
+	end
+end)
+
+-- ORBIT (your working version kept)
+local orbitParts = {}
+
+orbitButton.MouseButton1Click:Connect(function()
+	for _,obj in pairs(workspace:GetDescendants()) do
+		if obj:IsA("BasePart") and obj.Parent ~= character then
+			if (obj.Position - humanoidRootPart.Position).Magnitude <= 50 then
+				obj.Anchored = false
+				obj.CanCollide = false
+				table.insert(orbitParts, obj)
+			end
+		end
+	end
+end)
+
+task.spawn(function()
+	while true do
+		RunService.RenderStepped:Wait()
+
+		for i, part in ipairs(orbitParts) do
+			if part and humanoidRootPart then
+				local angle = tick()*2 + i*0.4
+				local radius = 55
+
+				part.Position = humanoidRootPart.Position + Vector3.new(
+					math.cos(angle)*radius,
+					(i%10)*4,
+					math.sin(angle)*radius
+				)
+			end
+		end
+	end
+end)
+
+-- 🎉 DISCO MODE (REPLACED KNOCKBACK)
+local discoEnabled = false
+
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://1846368080"
+sound.Looped = true
+sound.Volume = 1
+sound.Parent = workspace
+
+local function startDisco()
+	sound:Play()
+
+	task.spawn(function()
+		while discoEnabled do
+			Lighting.Ambient = Color3.fromRGB(math.random(0,255),math.random(0,255),math.random(0,255))
+			Lighting.OutdoorAmbient = Lighting.Ambient
+			Lighting.FogColor = Lighting.Ambient
+			task.wait(0.2)
+		end
+	end)
+end
+
+local function stopDisco()
+	sound:Stop()
+	Lighting.Ambient = Color3.fromRGB(128,128,128)
+	Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
+	Lighting.FogColor = Color3.fromRGB(192,192,192)
+end
+
+discoButton.MouseButton1Click:Connect(function()
+	discoEnabled = not discoEnabled
+
+	if discoEnabled then
+		discoButton.Text = "Disco ON"
+		startDisco()
+	else
+		discoButton.Text = "Disco OFF"
+		stopDisco()
+	end
 end)
